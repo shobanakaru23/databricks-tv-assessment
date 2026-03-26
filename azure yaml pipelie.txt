@@ -1,0 +1,75 @@
+trigger:
+- main
+
+parameters:
+- name: environment
+  displayName: Environment
+  type: string
+  default: dev
+  values:
+  - dev
+  - prod
+
+variables:
+  - group: keyvault-secrets   # 🔐 Key Vault linked variable group
+
+  - name: databricksHost
+    value: https://github.com/shobanakaru23/databricks-tv-assessment.git
+
+  - name: databricksToken
+    value: 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
+
+  - name: workspacePath
+    value: /Workspace/https://adb-7405607622265353.13.azuredatabricks.net
+
+stages:
+
+# 🚀 STAGE 1 — RUN UNIT TESTS
+- stage: Test
+  displayName: Run Unit Tests
+  jobs:
+  - job: RunTests
+    pool:
+      vmImage: 'ubuntu-latest'
+
+    steps:
+    - task: UsePythonVersion@0
+      inputs:
+        versionSpec: '3.9'
+
+    - script: |
+        pip install pytest
+        pytest tests/
+      displayName: Run Pytest
+
+# 🚀 STAGE 2 — DEPLOY TO DATABRICKS
+- stage: Deploy
+  displayName: Deploy to Databricks
+  dependsOn: Test
+  condition: succeeded()
+
+  jobs:
+  - job: DeployJob
+    pool:
+      vmImage: 'ubuntu-latest'
+
+    steps:
+
+    # 🔹 Install Databricks CLI
+    - script: |
+        pip install databricks-cli
+      displayName: Install Databricks CLI
+
+    # 🔐 Configure Databricks CLI using Key Vault secrets
+    - script: |
+        databricks configure --token <<EOF
+        https://github.com/shobanakaru23/databricks-tv-assessment.git
+        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
+        EOF
+      displayName: Configure Databricks CLI
+
+    # 📦 Deploy Notebooks (Environment-based)
+    - script: |
+        databricks workspace import_dir notebooks https://adb-7405607622265353.13.azuredatabricks.net --overwrite
+      displayName: Deploy Notebooks
+

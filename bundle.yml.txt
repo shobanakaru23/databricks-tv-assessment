@@ -1,0 +1,59 @@
+bundle:
+  name: tv-assessment-bundle
+
+workspace:
+  host: https://adb-7405607622265353.13.azuredatabricks.net
+
+targets:
+  dev:
+    default: true
+    workspace:
+      root_path: /Shared/tv-assessment
+
+    variables:
+  	catalog:
+    	description: Unity Catalog name
+    schema:
+     	description: Schema name
+
+resources:
+  jobs:
+    tv_pipeline_job:
+      name: tv-assessment-job
+
+      job_clusters:
+        - job_cluster_key: dev_cluster
+          new_cluster:
+            spark_version: 13.3.x-scala2.12
+            node_type_id: Standard_DS3_v2
+            num_workers: 2
+
+      tasks:
+
+        - task_key: bronze_task
+          job_cluster_key: dev_cluster
+          notebook_task:
+            notebook_path: notebooks/bronze_ingestion.py
+	    base_parameters:
+              catalog: ${var.catalog}
+              schema: ${var.schema}
+
+        - task_key: silver_task
+          depends_on:
+            - task_key: bronze_task
+          job_cluster_key: dev_cluster
+          notebook_task:
+            notebook_path: notebooks/silver_transformation.py
+	    base_parameters:
+              catalog: ${var.catalog}
+              schema: ${var.schema}
+
+        - task_key: gold_task
+          depends_on:
+            - task_key: silver_task
+          job_cluster_key: dev_cluster
+          notebook_task:
+            notebook_path: notebooks/gold_aggregation.py
+	    base_parameters:
+              catalog: ${var.catalog}
+              schema: ${var.schema}
